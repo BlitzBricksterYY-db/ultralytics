@@ -180,6 +180,11 @@ class BaseTrainer:
         else:  # i.e. device=None or device=''
             world_size = 0
 
+        LOGGER.info(
+            f"world_size: {world_size}"
+            f"LOCAL_RANK: {os.environ["LOCAL_RANK"]}"
+            f"RANK: {os.environ["RANK"]}"
+        )
         # Run subprocess if DDP training, else train normally
         if world_size > 1 and "LOCAL_RANK" not in os.environ:
             # Argument checks
