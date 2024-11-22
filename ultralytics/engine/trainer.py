@@ -276,6 +276,9 @@ class BaseTrainer:
         )
         LOGGER.info(f'DDP info: RANK {RANK}, LOCAL_RANK {LOCAL_RANK}, WORLD_SIZE {world_size}, DEVICE {self.device}')
 
+        dist.broadcast(self.amp, src=0)  # broadcast the tensor from rank 0 to all other ranks (returns None)
+        LOGGER.info(f'dist.broadcast(self.amp, src=0) finished!')
+
         if RANK > -1 and world_size > 1:  # DDP
             dist.broadcast(self.amp, src=0)  # broadcast the tensor from rank 0 to all other ranks (returns None)
         self.amp = bool(self.amp)  # as boolean
