@@ -223,7 +223,7 @@ class BaseTrainer:
         """Initializes and sets the DistributedDataParallel parameters for training."""
         torch.cuda.set_device(LOCAL_RANK)
         self.device = torch.device("cuda", LOCAL_RANK)
-        # LOGGER.info(f'DDP info: LOCAL_RANK {LOCAL_RANK}, WORLD_SIZE {world_size}, DEVICE {self.device}')
+        LOGGER.info(f'DDP info: LOCAL_RANK {LOCAL_RANK}, WORLD_SIZE {world_size}, DEVICE {self.device}')
         os.environ["TORCH_NCCL_BLOCKING_WAIT"] = "1"  # set to enforce timeout
         dist.init_process_group(
             backend="nccl" if dist.is_nccl_available() else "gloo",
@@ -274,6 +274,7 @@ class BaseTrainer:
             f"LOCAL_RANK: {os.environ['LOCAL_RANK']}"
             f"RANK: {os.environ['RANK']}"
         )
+        LOGGER.info(f'DDP info: RANK {RANK}, LOCAL_RANK {LOCAL_RANK}, WORLD_SIZE {world_size}, DEVICE {self.device}')
 
         if RANK > -1 and world_size > 1:  # DDP
             dist.broadcast(self.amp, src=0)  # broadcast the tensor from rank 0 to all other ranks (returns None)
