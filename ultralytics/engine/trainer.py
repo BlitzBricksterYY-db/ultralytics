@@ -278,16 +278,23 @@ class BaseTrainer:
         if RANK > -1 and world_size > 1:  # DDP
             dist.broadcast(self.amp, src=0)  # broadcast the tensor from rank 0 to all other ranks (returns None)
         self.amp = bool(self.amp)  # as boolean
+        LOGGER.info("Broadcast amp finished!")
+
         self.scaler = (
             torch.amp.GradScaler("cuda", enabled=self.amp) if TORCH_2_4 else torch.cuda.amp.GradScaler(enabled=self.amp)
         )
+        LOGGER.info("Scaler define finished!")
+
         if world_size > 1:
             self.model = nn.parallel.DistributedDataParallel(self.model, device_ids=[LOCAL_RANK], find_unused_parameters=True) # updated from RANK to LOCAL_RANK for DPP on multi-node
+            LOGGER.info("DPP model define finished!")
+
 
         # Check imgsz
         gs = max(int(self.model.stride.max() if hasattr(self.model, "stride") else 32), 32)  # grid size (max stride)
         self.args.imgsz = check_imgsz(self.args.imgsz, stride=gs, floor=gs, max_dim=1)
         self.stride = gs  # for multiscale training
+        LOGGER.info("Check imgsz finished!")
 
         # Batch size
         if self.batch_size < 1 and RANK == -1:  # single-GPU only, estimate best batch size
