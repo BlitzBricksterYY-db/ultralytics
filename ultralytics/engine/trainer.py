@@ -307,6 +307,7 @@ class BaseTrainer:
             self.ema = ModelEMA(self.model)
             if self.args.plots:
                 self.plot_training_labels()
+        LOGGER.info("Dataloaders finished!")
 
         # Optimizer
         self.accumulate = max(round(self.args.nbs / self.batch_size), 1)  # accumulate loss before optimizing
@@ -320,12 +321,17 @@ class BaseTrainer:
             decay=weight_decay,
             iterations=iterations,
         )
+        LOGGER.info("Optimizer finished!")
+
         # Scheduler
         self._setup_scheduler()
         self.stopper, self.stop = EarlyStopping(patience=self.args.patience), False
         self.resume_training(ckpt)
         self.scheduler.last_epoch = self.start_epoch - 1  # do not move
         self.run_callbacks("on_pretrain_routine_end")
+        LOGGER.info("Scheduler finished!")
+
+
 
     def _do_train(self, world_size=1):
         """Train completed, evaluate and plot if specified by arguments."""
