@@ -269,6 +269,9 @@ class BaseTrainer:
             self.amp = torch.tensor(check_amp(self.model), device=self.device)
             callbacks.default_callbacks = callbacks_backup  # restore callbacks
 
+        print(self.amp)
+        print(self.amp.__class__)
+
         LOGGER.info(
             f"world_size: {world_size}"
             f"LOCAL_RANK: {os.environ['LOCAL_RANK']}"
