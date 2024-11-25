@@ -311,6 +311,8 @@ class BaseTrainer:
         # Dataloaders
         batch_size = self.batch_size // max(world_size, 1)
         self.train_loader = self.get_dataloader(self.trainset, batch_size=batch_size, rank=LOCAL_RANK, mode="train")
+        LOGGER.info("Train Dataloaders finished!")
+        
         if RANK in {-1, 0}: # on master process (GPU) whether single-GPU or multi-GPU
             # Note: When training DOTA dataset, double batch size could get OOM on images with >2000 objects.
             self.test_loader = self.get_dataloader(
@@ -322,7 +324,7 @@ class BaseTrainer:
             self.ema = ModelEMA(self.model)
             if self.args.plots:
                 self.plot_training_labels()
-        LOGGER.info("Dataloaders finished!")
+        LOGGER.info("Val Dataloaders finished!")
 
         # Optimizer
         self.accumulate = max(round(self.args.nbs / self.batch_size), 1)  # accumulate loss before optimizing
