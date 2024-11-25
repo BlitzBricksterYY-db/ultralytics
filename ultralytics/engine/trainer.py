@@ -264,7 +264,7 @@ class BaseTrainer:
 
         # Check AMP
         self.amp = torch.tensor(self.args.amp).to(self.device)  # True or False
-        if self.amp and LOCAL_RANK in {-1, 0}:  # Single-GPU and DDP
+        if self.amp:  # Single-GPU and DDP
             callbacks_backup = callbacks.default_callbacks.copy()  # backup callbacks as check_amp() resets them
             self.amp = torch.tensor(check_amp(self.model), device=self.device)
             callbacks.default_callbacks = callbacks_backup  # restore callbacks
@@ -279,12 +279,12 @@ class BaseTrainer:
         )
         LOGGER.info(f'DDP info: RANK {RANK}, LOCAL_RANK {LOCAL_RANK}, WORLD_SIZE {world_size}, DEVICE {self.device}')
 
-        LOGGER.info(f'dist.broadcast(self.amp, src=0) starts!')
-        dist.broadcast(self.amp, src=0)  # broadcast the tensor from rank 0 to all other ranks (returns None)
-        LOGGER.info(f'dist.broadcast(self.amp, src=0) finished!')
+        # LOGGER.info(f'dist.broadcast(self.amp, src=0) starts!')
+        # dist.broadcast(self.amp, src=0)  # broadcast the tensor from rank 0 to all other ranks (returns None)
+        # LOGGER.info(f'dist.broadcast(self.amp, src=0) finished!')
 
-        if RANK > -1 and world_size > 1:  # DDP
-            dist.broadcast(self.amp, src=0)  # broadcast the tensor from rank 0 to all other ranks (returns None)
+        # if RANK > -1 and world_size > 1:  # DDP
+        #     dist.broadcast(self.amp, src=0)  # broadcast the tensor from rank 0 to all other ranks (returns None)
         self.amp = bool(self.amp)  # as boolean
         LOGGER.info("Broadcast amp finished!")
 
