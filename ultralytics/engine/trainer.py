@@ -293,9 +293,9 @@ class BaseTrainer:
         )
         LOGGER.info("Scaler define finished!")
 
-        if world_size > 1:
-            self.model = nn.parallel.DistributedDataParallel(self.model, device_ids=[RANK], find_unused_parameters=True) # updated from RANK to LOCAL_RANK for DPP on multi-node
-            LOGGER.info("DPP model define finished!")
+        # if world_size > 1:
+        #     self.model = nn.parallel.DistributedDataParallel(self.model, device_ids=[RANK], find_unused_parameters=True) # updated from RANK to LOCAL_RANK for DPP on multi-node
+        #     LOGGER.info("DPP model define finished!")
 
 
         # Check imgsz
