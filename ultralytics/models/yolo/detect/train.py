@@ -45,8 +45,11 @@ class DetectionTrainer(BaseTrainer):
     def get_dataloader(self, dataset_path, batch_size=16, rank=0, mode="train"):
         """Construct and return dataloader."""
         assert mode in {"train", "val"}, f"Mode must be 'train' or 'val', not {mode}."
+        LOGGER.info(f"dataset build_dataset starts!")
         with torch_distributed_zero_first(rank):  # init dataset *.cache only once if DDP
             dataset = self.build_dataset(dataset_path, mode, batch_size)
+        LOGGER.info(f"dataset build_dataset finished!")
+        
         shuffle = mode == "train"
         if getattr(dataset, "rect", False) and shuffle:
             LOGGER.warning("WARNING ⚠️ 'rect=True' is incompatible with DataLoader shuffle, setting shuffle=False")
