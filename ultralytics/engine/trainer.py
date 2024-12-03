@@ -180,10 +180,15 @@ class BaseTrainer:
         else:  # i.e. device=None or device=''
             world_size = 0
 
+        # world_size = WORLD_SIZE = int(os.environ['WORLD_SIZE'])
+        # world_size = 1 # default to device 0, if we set device to LOCAL_RANK
+
         LOGGER.info(
+            f"from train()"
             f"world_size: {world_size}"
             f"LOCAL_RANK: {os.environ['LOCAL_RANK']}"
             f"RANK: {os.environ['RANK']}"
+            # f"WORLD_SIZE: {WORLD_SIZE}"
         )
         # Run subprocess if DDP training, else train normally
         if world_size > 1 and "LOCAL_RANK" not in os.environ:
@@ -223,8 +228,10 @@ class BaseTrainer:
         """Initializes and sets the DistributedDataParallel parameters for training."""
         torch.cuda.set_device(LOCAL_RANK)
         self.device = torch.device("cuda", LOCAL_RANK)
-        LOGGER.info(f'DDP info: LOCAL_RANK {LOCAL_RANK}, WORLD_SIZE {world_size}, DEVICE {self.device}')
+        
+        LOGGER.info(f'DDP info: RANK {RANK}, LOCAL_RANK {LOCAL_RANK}, WORLD_SIZE {world_size}, DEVICE {self.device}')
         os.environ["TORCH_NCCL_BLOCKING_WAIT"] = "1"  # set to enforce timeout
+        
         dist.init_process_group(
             backend="nccl" if dist.is_nccl_available() else "gloo",
             timeout=timedelta(seconds=10800),  # 3 hours
@@ -264,7 +271,7 @@ class BaseTrainer:
 
         # Check AMP
         self.amp = torch.tensor(self.args.amp).to(self.device)  # True or False
-        if self.amp and LOCAL_RANK in {-1, 0}:  # Single-GPU and DDP
+        if self.amp and RANK in {-1, 0}:  # Single-GPU and DDP
             callbacks_backup = callbacks.default_callbacks.copy()  # backup callbacks as check_amp() resets them
             self.amp = torch.tensor(check_amp(self.model), device=self.device)
             callbacks.default_callbacks = callbacks_backup  # restore callbacks
@@ -279,12 +286,15 @@ class BaseTrainer:
         )
         LOGGER.info(f'DDP info: RANK {RANK}, LOCAL_RANK {LOCAL_RANK}, WORLD_SIZE {world_size}, DEVICE {self.device}')
 
-        LOGGER.info(f'dist.broadcast(self.amp, src=0) starts!')
-        dist.broadcast(self.amp, src=0)  # broadcast the tensor from rank 0 to all other ranks (returns None)
-        LOGGER.info(f'dist.broadcast(self.amp, src=0) finished!')
+        # LOGGER.info(f'dist.broadcast(self.amp, src=0) starts!')
+        # dist.broadcast(self.amp, src=0)  # broadcast the tensor from rank 0 to all other ranks (returns None)
+        # LOGGER.info(f'dist.broadcast(self.amp, src=0) finished!')
 
         if RANK > -1 and world_size > 1:  # DDP
+            LOGGER.info(f'dist.broadcast(self.amp, src=0) starts!')
+            print(f'DDP info: RANK {RANK}, LOCAL_RANK {LOCAL_RANK}, WORLD_SIZE {world_size}, DEVICE {self.device}')
             dist.broadcast(self.amp, src=0)  # broadcast the tensor from rank 0 to all other ranks (returns None)
+            # dist.barrier(device_ids=[LOCAL_RANK])
         self.amp = bool(self.amp)  # as boolean
         LOGGER.info("Broadcast amp finished!")
 
@@ -294,7 +304,9 @@ class BaseTrainer:
         LOGGER.info("Scaler define finished!")
 
         if world_size > 1:
-            self.model = nn.parallel.DistributedDataParallel(self.model, device_ids=[LOCAL_RANK], find_unused_parameters=True) # updated from RANK to LOCAL_RANK for DPP on multi-node
+            # torch.cuda.set_device(RANK)
+            # convert model to DDP model on each rank i, where i is from 0 to N-1. In each process, you should refer the following to construct this module:
+            self.model = nn.parallel.DistributedDataParallel(self.model, device_ids=[RANK], find_unused_parameters=True) 
             LOGGER.info("DPP model define finished!")
 
 
@@ -310,7 +322,10 @@ class BaseTrainer:
 
         # Dataloaders
         batch_size = self.batch_size // max(world_size, 1)
+        # for train, each LOCAL_RANK process gets batch_size batch
         self.train_loader = self.get_dataloader(self.trainset, batch_size=batch_size, rank=LOCAL_RANK, mode="train")
+        LOGGER.info("Training Dataloaders finished!")
+
         if RANK in {-1, 0}: # on master process (GPU) whether single-GPU or multi-GPU
             # Note: When training DOTA dataset, double batch size could get OOM on images with >2000 objects.
             self.test_loader = self.get_dataloader(
@@ -322,7 +337,7 @@ class BaseTrainer:
             self.ema = ModelEMA(self.model)
             if self.args.plots:
                 self.plot_training_labels()
-        LOGGER.info("Dataloaders finished!")
+        LOGGER.info("Validation Dataloaders finished!")
 
         # Optimizer
         self.accumulate = max(round(self.args.nbs / self.batch_size), 1)  # accumulate loss before optimizing
@@ -351,7 +366,12 @@ class BaseTrainer:
     def _do_train(self, world_size=1):
         """Train completed, evaluate and plot if specified by arguments."""
         if world_size > 1:
+            LOGGER.info("start setting up DDP")
             self._setup_ddp(world_size)
+
+        # torch.cuda.set_device(LOCAL_RANK)
+        # self.device = torch.device("cuda", LOCAL_RANK)
+        
         self._setup_train(world_size)
 
         nb = len(self.train_loader)  # number of batches
